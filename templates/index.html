@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Nexus Store — Shop Everything{% endblock %}
+
+{% block content %}
+<header class="hero">
+  <div class="hero-inner">
+    <p class="hero-eyebrow">Free shipping on orders over $50</p>
+    <h1 class="hero-headline">Everything<br/><em>You Need.</em></h1>
+    <p class="hero-sub">Curated picks across electronics, fashion, sports & home.</p>
+  </div>
+  <div class="hero-bg-text" aria-hidden="true">NEXUS</div>
+</header>
+
+<!-- FILTERS -->
+<section class="filter-bar">
+  <form method="GET" action="/" class="filter-form">
+    <div class="filter-cats">
+      {% for cat in categories %}
+        <button type="submit" name="category" value="{{ cat }}"
+                class="cat-pill {% if active_category == cat %}active{% endif %}">
+          {{ cat }}
+        </button>
+      {% endfor %}
+    </div>
+    <div class="search-wrap">
+      <input type="text" name="q" value="{{ search }}" placeholder="Search products…" class="search-input"/>
+      <button type="submit" class="search-btn">→</button>
+    </div>
+  </form>
+</section>
+
+<!-- PRODUCTS -->
+<section class="products-grid">
+  {% if products %}
+    {% for p in products %}
+    <article class="product-card" data-id="{{ p.id }}">
+      {% if p.badge %}
+        <span class="badge badge--{{ p.badge | lower | replace(' ', '-') }}">{{ p.badge }}</span>
+      {% endif %}
+      <div class="product-img-wrap">
+        <img src="{{ p.image }}" alt="{{ p.name }}" class="product-img" loading="lazy"/>
+      </div>
+      <div class="product-info">
+        <span class="product-cat">{{ p.category }}</span>
+        <h2 class="product-name">{{ p.name }}</h2>
+        <p class="product-desc">{{ p.description }}</p>
+        <div class="product-footer">
+          <span class="product-price">${{ "%.2f" | format(p.price / 100) }}</span>
+          <button class="add-btn" onclick="addToCart('{{ p.id }}', this)">Add to cart</button>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">
+      <p>No products found. <a href="/">Clear filters</a></p>
+    </div>
+  {% endif %}
+</section>
+
+<footer class="site-footer">
+  <p>© 2025 Nexus Store · Payments secured by <strong>Stripe</strong></p>
+</footer>
+{% endblock %}

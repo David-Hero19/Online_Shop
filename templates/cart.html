@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Your Cart - Nexus Store{% endblock %}
+
+{% block content %}
+<div class="cart-page">
+  <div class="cart-container">
+    <h1 class="page-title">Your Cart
+      <span class="item-count">{{ cart_count }} item{% if cart_count != 1 %}s{% endif %}</span>
+    </h1>
+
+    {% if items %}
+    <div class="cart-layout">
+      <!-- Items -->
+      <div class="cart-items" id="cartItems">
+        {% for item in items %}
+        <div class="cart-row" id="row-{{ item.id }}">
+          <img src="{{ item.image }}" alt="{{ item.name }}" class="cart-img"/>
+          <div class="cart-row-info">
+            <span class="cart-row-cat">{{ item.category }}</span>
+            <h3 class="cart-row-name">{{ item.name }}</h3>
+            <p class="cart-row-desc">{{ item.description }}</p>
+          </div>
+          <div class="cart-row-controls">
+            <div class="qty-control">
+              <button class="qty-btn" onclick="changeQty('{{ item.id }}', -1)">−</button>
+              <span class="qty-val" id="qty-{{ item.id }}">{{ item.qty }}</span>
+              <button class="qty-btn" onclick="changeQty('{{ item.id }}', 1)">+</button>
+            </div>
+            <span class="cart-row-price" id="sub-{{ item.id }}">${{ "%.2f" | format(item.subtotal / 100) }}</span>
+            <button class="remove-btn" onclick="removeItem('{{ item.id }}')">Remove</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Summary -->
+      <aside class="cart-summary">
+        <h2 class="summary-title">Order Summary</h2>
+        <div class="summary-line">
+          <span>Subtotal</span>
+          <span id="summaryTotal">${{ "%.2f" | format(total / 100) }}</span>
+        </div>
+        <div class="summary-line">
+          <span>Shipping</span>
+          <span>{% if total >= 5000 %}Free{% else %}$4.99{% endif %}</span>
+        </div>
+        <div class="summary-line summary-line--total">
+          <span>Total</span>
+          <span id="grandTotal">
+            ${{ "%.2f" | format((total + (0 if total >= 5000 else 499)) / 100) }}
+          </span>
+        </div>
+        <button class="checkout-btn" id="checkoutBtn" onclick="startCheckout()">
+          Pay with Stripe →
+        </button>
+        <p class="stripe-note">🔒 Secure checkout powered by Stripe</p>
+        <a href="/" class="continue-link">← Continue shopping</a>
+      </aside>
+    </div>
+
+    {% else %}
+    <div class="empty-cart">
+      <div class="empty-cart-icon">🛒</div>
+      <h2>Your cart is empty</h2>
+      <p>Looks like you haven't added anything yet.</p>
+      <a href="/" class="btn-primary">Start shopping</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<footer class="site-footer">
+  <p>© 2025 Nexus Store · Payments secured by <strong>Stripe</strong></p>
+</footer>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+const stripe = Stripe("{{ stripe_key }}");
+
+async function startCheckout() {
+  const btn = document.getElementById("checkoutBtn");
+  btn.textContent = "Redirecting…";
+  btn.disabled = true;
+  try {
+    const res = await fetch("/create-checkout-session", { method: "POST" });
+    const data = await res.json();
+    if (data.error) {
+      showToast(data.error, "error");
+      btn.textContent = "Pay with Stripe →";
+      btn.disabled = false;
+      return;
+    }
+    await stripe.redirectToCheckout({ sessionId: data.id });
+  } catch (e) {
+    showToast("Something went wrong. Please try again.", "error");
+    btn.textContent = "Pay with Stripe →";
+    btn.disabled = false;
+  }
+}
+
+async function changeQty(productId, delta) {
+  const qtyEl = document.getElementById("qty-" + productId);
+  if (qtyEl) {
+    let qty = parseInt(qtyEl.textContent) + delta;
+    if (qty <= 0) {
+      removeItem(productId);
+    } else {
+      updateQty(productId, qty);
+    }
+  }
+}
+
+async function updateQty(productId, qty) {
+  const res = await fetch("/api/cart/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: productId, quantity: qty })
+  });
+  const data = await res.json();
+  if (qty <= 0) {
+    document.getElementById("row-" + productId)?.remove();
+  } else {
+    const qtyEl = document.getElementById("qty-" + productId);
+    if (qtyEl) qtyEl.textContent = qty;
+    const item = data.items.find(i => i.id === productId);
+    if (item) {
+      const subEl = document.getElementById("sub-" + productId);
+      if (subEl) subEl.textContent = "$" + (item.subtotal / 100).toFixed(2);
+    }
+  }
+  updateSummary(data.total);
+  updateBadge(data.cart_count);
+}
+
+async function removeItem(productId) {
+  const res = await fetch("/api/cart/remove", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: productId })
+  });
+  const data = await res.json();
+  document.getElementById("row-" + productId)?.remove();
+  updateSummary(data.total);
+  updateBadge(data.cart_count);
+  if (data.cart_count === 0) location.reload();
+}
+
+function updateSummary(total) {
+  const shipping = total >= 5000 ? 0 : 499;
+  document.getElementById("summaryTotal").textContent = "$" + (total / 100).toFixed(2);
+  document.getElementById("grandTotal").textContent = "$" + ((total + shipping) / 100).toFixed(2);
+}
+</script>
+const stripe = Stripe("{{ stripe_key }}");
+
+async function startCheckout() {
+  const btn = document.getElementById("checkoutBtn");
+  btn.textContent = "Redirecting…";
+  btn.disabled = true;
+  try {
+    const res = await fetch("/create-checkout-session", { method: "POST" });
+    const data = await res.json();
+    if (data.error) {
+      showToast(data.error, "error");
+      btn.textContent = "Pay with Stripe →";
+      btn.disabled = false;
+      return;
+    }
+    await stripe.redirectToCheckout({ sessionId: data.id });
+  } catch (e) {
+    showToast("Something went wrong. Please try again.", "error");
+    btn.textContent = "Pay with Stripe →";
+    btn.disabled = false;
+  }
+}
+
+async function updateQty(productId, qty) {
+  const res = await fetch("/api/cart/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: productId, quantity: qty })
+  });
+  const data = await res.json();
+  if (qty <= 0) {
+    document.getElementById("row-" + productId)?.remove();
+  } else {
+    const qtyEl = document.getElementById("qty-" + productId);
+    if (qtyEl) qtyEl.textContent = qty;
+    const item = data.items.find(i => i.id === productId);
+    if (item) {
+      const subEl = document.getElementById("sub-" + productId);
+      if (subEl) subEl.textContent = "$" + (item.subtotal / 100).toFixed(2);
+    }
+  }
+  updateSummary(data.total);
+  updateBadge(data.cart_count);
+}
+
+async function removeItem(productId) {
+  const res = await fetch("/api/cart/remove", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: productId })
+  });
+  const data = await res.json();
+  document.getElementById("row-" + productId)?.remove();
+  updateSummary(data.total);
+  updateBadge(data.cart_count);
+  if (data.cart_count === 0) location.reload();
+}
+
+function updateSummary(total) {
+  const shipping = total >= 5000 ? 0 : 499;
+  document.getElementById("summaryTotal").textContent = "$" + (total / 100).toFixed(2);
+  document.getElementById("grandTotal").textContent = "$" + ((total + shipping) / 100).toFixed(2);
+}
+</script>
+{% endblock %}
